@@ -1,10 +1,6 @@
 """
 Example script for running the Time-Based Maintenance (TBM) simulation engine.
 
-This script demonstrates:
-(1) How to supply fixed and dynamic covariates
-(2) How to define a custom covariate update function
-(3) How to call the TBM engine and inspect results
 """
 
 import numpy as np
