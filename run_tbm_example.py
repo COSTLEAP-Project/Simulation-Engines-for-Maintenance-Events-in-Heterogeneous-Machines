@@ -120,7 +120,7 @@ model_type_minor = "weibull"  # CHANGED
 shape_minor = 2.0             # CHANGED: >1 ⇒ hazard(0)=0
 scale_minor = 2.5             # CHANGED: tune to get realistic times
 intercept_minor = None        # not used for Weibull
-
+with_covariates_minor = True
 
 # --- Catastrophic hazard model ---
 include_catas = True
