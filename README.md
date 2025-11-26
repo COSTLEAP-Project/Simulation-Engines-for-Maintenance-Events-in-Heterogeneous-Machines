@@ -1,6 +1,4 @@
 # Simulation-Engines-for-Maintenance-Events-in-Heterogeneous-Machines
-Two feature-driven engines that generate realistic historical maintenance logs that can be used to train learning algorithms. The TBM engine simulates failures, preventive actions, and costs, while the CBM engine produces stochastic degradation paths and corresponding maintenance events.
-
 
 Recent studies in reliability increasingly rely on data-driven algorithms, such as machine/deep learning, which require large amounts of failure and maintenance data for training and validation. However, such historical data are often scarce in industrial practice, limiting the development and evaluation of these methods. To address this limitation, this study develops two feature-dependent simulation engines that generate realistic degradation and maintenance datasets under both time-based (TBM) and condition-based maintenance (CBM) frameworks.
 
