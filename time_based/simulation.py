@@ -152,7 +152,7 @@ def simulate_all_machines(n_machines, t_obs, m, n_dynamic_features, delta_t, T_m
             t_obs, machine_id, m, n_dynamic_features, delta_t, T, push,
             include_minor, model_type_minor, shape_minor, scale_minor, intercept_minor, with_covariates_minor,
             include_catas, model_type_catas, shape_catas, scale_catas, intercept_catas, with_covariates_catas,
-            fixed_covs, dynamic_covs, beta_fixed, beta_dynamic, beta_multinom_fixed, beta_multinom_dynamic,
+            fixed_covs, dynamic_covs_init, beta_fixed, beta_dynamic, beta_multinom_fixed, beta_multinom_dynamic,
             n_minor_types, cov_update_fn,
             gamma_coeffs_cat_fixed, gamma_coeffs_cat_dynamic,
             gamma_coeffs_minor_fixed_list, gamma_coeffs_minor_dynamic_list,
