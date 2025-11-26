@@ -220,5 +220,5 @@ results_df, all_machines_dynamic_covs = simulate_all_machines(n_machines, t_obs,
 
 
 print("\n--- Simulation completed ---")
-#print(results_df.head())
+print(results_df.head())
 
