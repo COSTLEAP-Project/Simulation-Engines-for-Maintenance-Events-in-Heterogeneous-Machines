@@ -380,33 +380,6 @@ if __name__ == "__main__":
             print(f"{type_names[mtype]:<30} {count:>10} {total:>15.2f} {pct:>7.1f}% {avg:>12.2f}")
 
     # =========================================================================
-    # EXPORT TO DATAFRAMES
-    ### Alredy moved to the Function simulate_multiple_machines()------>directly output these dataframe
-    # =========================================================================
-    
-    print("\n" + "="*80)
-    print("EXPORTING RESULTS TO DATAFRAMES")
-    print("="*80)
-    
-    for scenario_name, fleet_res in fleet_results.items():
-        print(f"\n{scenario_name}:")
-        
-        # Export fleet summary
-        df_fleet = export_machine_level_df(fleet_res['machine_results'])
-        print(f"  Machine-level DataFrame shape: {df_fleet.shape}")
-        print(f"  Sample columns: {list(df_fleet.columns[:10])}")
-        
-        # Print policy variation
-        print(f"\n  Policy Variation:")
-        policy_cols = ['machine_id', 'PM_level', 'PM_interval', 'total_cost', 'n_cm']
-        print(df_fleet[policy_cols].to_string(index=False))
-        
-        # Export all events
-        df_events = export_event_level_df(fleet_res['machine_results'])
-        print(f"\n  Event-level DataFrame shape: {df_events.shape}")
-        print(f"  Total events: {len(df_events)}")
-
-    # =========================================================================
     # VISUALIZATION
     # =========================================================================
     
