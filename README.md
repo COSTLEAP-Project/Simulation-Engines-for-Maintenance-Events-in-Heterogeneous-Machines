@@ -20,7 +20,7 @@ It generates:
 
 The following figure shows an example TBM output: a log table containing maintenance events and their associated features.
 
-![TBM Framework](figures/tbm_framework.png)
+![TBM Framework](Figures/TBM_Output_Example.jpg)
 
 A detailed explanation of the TBM engine can be found in:
 📄 TBM_Note.pdf
