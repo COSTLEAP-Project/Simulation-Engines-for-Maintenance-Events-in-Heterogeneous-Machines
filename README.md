@@ -73,6 +73,7 @@ figures/
 
 TBM_Note.pdf
 CBM_Note.pdf
+COSTLEAP_Simulation_Engines_Presentation.pdf
 run_tbm_example.py
 run_cbm_example.py
 README.md
