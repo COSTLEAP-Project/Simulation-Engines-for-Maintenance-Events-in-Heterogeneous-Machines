@@ -27,7 +27,7 @@ def sample_post_repair_mixed(
     - If y_upper <= 0: already at perfect condition, return 0.
     
     Args:
-        y_lower: Lower bound (typically degradation level after last repair)
+        y_lower: Lower bound (typically best (lowest) degradation level that we can reach after this repair)
         y_upper: Upper bound (typically current degradation level before repair)
         params: Dictionary containing repair parameters:
             - p_major: Probability of major repair (default: 0.2)
