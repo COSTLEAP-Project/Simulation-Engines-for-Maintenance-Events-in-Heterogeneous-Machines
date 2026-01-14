@@ -109,14 +109,28 @@ def simulate_single_cycle(t_obs, machine_id, m, delta_t,
         failure_time.append(ft)
         censor_status.append(1)  # 1=observed failure
 
-        ##### Determine failure type
+       ##### Determine failure type
         dynamic_cov_t = dynamic_covs[valid_indices] if (dynamic_covs is not None) else None
-        p_minor, type_risk = get_failure_type(machine_id, ft, T, push, scale_minor, intercept_minor, shape_minor,
-                                    with_covariates_minor, model_type_minor,
-                                    fixed_covs, dynamic_cov_t, beta_fixed, beta_dynamic,
-                                    scale_catas, shape_catas, intercept_catas, model_type_catas, with_covariates_catas)
+        # If only one failure type is included, skip competing risk calculation
+        if include_minor and not include_catas:
+            # Only minor failures possible
+            type_risk = 1
+            p_minor = 1.0
+        elif include_catas and not include_minor:
+            # Only catastrophic failures possible
+            type_risk = 2
+            p_minor = 0.0
+        else:
+            # Both types included - use competing risks
+            p_minor, type_risk = get_failure_type(
+                machine_id, ft, T, push, scale_minor, intercept_minor, shape_minor,
+                with_covariates_minor, model_type_minor,
+                fixed_covs, dynamic_cov_t, beta_fixed, beta_dynamic,
+                scale_catas, shape_catas, intercept_catas, model_type_catas, with_covariates_catas
+            )
+        
         risk_type.append(type_risk)
-
+        
         # Continue even if catastrophic failure, as observation time is fixed
         if type_risk == 2:
             failure_type.append(-1)  # Ensure list lengths match
