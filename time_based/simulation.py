@@ -334,8 +334,15 @@ def simulate_machine_full_observed_period(
     # Construct DataFrame
     df_failures = pd.DataFrame(data_dict)
 
-    # 3. Generate PM times and costs  (use final dynamic covariate trajectory)
-    pm_index, pm_times, pm_costs = simulate_periodical_pm(t_obs, T, delta_t, machine_id, fixed_covs, all_dynamic_covs,
+    # 3. Generate PM times and costs (only if T <= t_obs and use final dynamic covariate trajectory)
+    if T > t_obs:
+        # No PM events occur within observation period
+        pm_index = None
+        pm_times = None
+        pm_costs = None
+    else:
+        # PM events occur - generate them
+        pm_index, pm_times, pm_costs = simulate_periodical_pm(t_obs, T, delta_t, machine_id, fixed_covs, all_dynamic_covs,
                            gamma_coeffs_pm_fixed, gamma_coeffs_pm_dynamic,
                            shape_pm, scale_pm, loc_fixed_pm, use_covariates)
 
@@ -400,22 +407,25 @@ def simulate_all_machines(n_machines, t_obs, m, n_dynamic_features, delta_t, T_m
         if machine_dynamic_covs is not None:
             all_machines_dynamic_covs[machine_id] = machine_dynamic_covs
 
-        # Build PM DataFrame
-        df_pm = pd.DataFrame({
-            "event_index": pm_index,           # index at which PM happens
-            "abs_event_time": pm_times,        # absolute time of PM
-            "risk_type": -2,                   # tag for PM
-            "event_type": -2,                  # tag for PM
-            "censor_status": 1,                # PM is an observed event
-            "event_cost": pm_costs
-        })
-        # If the last PM lands exactly at t_obs, mark as censored=0 to avoid duplicate end marker
-        if len(df_pm) > 0 and df_pm["abs_event_time"].iloc[-1] == t_obs:
-            df_pm.loc[df_pm.index[-1], "censor_status"] = 0
-
-        # Combine failures + PM, sort by absolute time
-        df_machine = pd.concat([df_failures, df_pm], ignore_index=True)
-        df_machine = df_machine.sort_values(by="abs_event_time").reset_index(drop=True)
+        # Build PM DataFrame (only if PM events actually occurred)
+        if pm_times is not None and len(pm_times) > 0:
+            df_pm = pd.DataFrame({
+                "event_index": pm_index,           # index at which PM happens
+                "abs_event_time": pm_times,        # absolute time of PM
+                "risk_type": -2,                   # tag for PM
+                "event_type": -2,                  # tag for PM
+                "censor_status": 1,                # PM is an observed event
+                "event_cost": pm_costs
+            })
+            # If the last PM lands exactly at t_obs, mark as censored=0 to avoid duplicate end marker
+            if df_pm["abs_event_time"].iloc[-1] == t_obs:
+                df_pm.loc[df_pm.index[-1], "censor_status"] = 0
+            # Combine failures + PM, sort by absolute time
+            df_machine = pd.concat([df_failures, df_pm], ignore_index=True)
+            df_machine = df_machine.sort_values(by="abs_event_time").reset_index(drop=True)
+        else:
+            # No PM events - just use failures DataFrame directly
+            df_machine = df_failures.copy()
 
         # Drop duplicate terminal censored line: (t_obs, cost=0)
         mask = (
@@ -437,13 +447,20 @@ def simulate_all_machines(n_machines, t_obs, m, n_dynamic_features, delta_t, T_m
             for i in range(n_dynamic_features):
                 dynamic_cov_at_failure = []
                 for idx, failure_idx in enumerate(df_machine['event_index']):
-                    if failure_idx >= 0:  # effecive failure index
-                        dynamic_cov_value = machine_dynamic_covs[failure_idx, i]
-                    else:  # PM or censored
+                    # FIXED: Ensure failure_idx is valid integer and within bounds
+                    if pd.notna(failure_idx) and failure_idx >= 0:
+                        failure_idx_int = int(failure_idx)  # Convert to integer
+                        # Check if index is within bounds
+                        if failure_idx_int < len(machine_dynamic_covs):
+                            dynamic_cov_value = machine_dynamic_covs[failure_idx_int, i]
+                        else:
+                            # Index out of bounds - use last available value or NaN
+                            dynamic_cov_value = np.nan
+                    else:  # Invalid index (NaN, negative, or PM/censored)
                         dynamic_cov_value = np.nan
                     dynamic_cov_at_failure.append(dynamic_cov_value)
     
-                df_machine[f'dynamic_cov_{i+1}_at_event'] = dynamic_cov_at_failure
+                df_machine[f'dynamic_cov_{i+1}_at_failure'] = dynamic_cov_at_failure
 
         all_results.append(df_machine)
 
