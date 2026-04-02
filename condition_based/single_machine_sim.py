@@ -102,10 +102,6 @@ def simulate_path_with_covariates(
     if cost_params is None:
         cost_params = CostParams()
     
-    # Set default repair function if not provided
-    if repair_func is None:
-        repair_func = sample_post_repair_mixed
-    
     # Initialize tracking variables
     times = [0.0]
     degra_level_latent = [x0]
@@ -210,7 +206,8 @@ def simulate_path_with_covariates(
             # Level-only strategy (based on observed level)
             if x_obs >= PM_level:
                 z_lat = x_lat
-                y_lat = repair_func(last_repair_post_lat, z_lat, params=repair_params)
+                y_lat = (repair_func(last_repair_post_lat, z_lat, params=repair_params)
+                         if repair_func else z_lat * 0.5)
                 
                 # Compute imperfect PM cost (using cost covariates)
                 repair_eff = compute_repair_effectiveness(z_lat, y_lat)
