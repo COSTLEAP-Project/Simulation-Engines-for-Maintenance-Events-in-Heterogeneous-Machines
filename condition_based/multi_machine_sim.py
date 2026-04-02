@@ -21,6 +21,7 @@ def simulate_multiple_machines(
     degradation_type: str = "compound_poisson",
     degradation_params: Dict[str, Any] = None,
     covariate_specs: List[CovariateSpec] = None,
+    covariate_specs_list: List[List[CovariateSpec]] = None,  # NEW: per-machine specs
     covariate_effects: Dict[str, np.ndarray] = None,
     dt: float = 0.01,
     PM_level: Union[float, List[float], Dict[int, float]] = 2.0,
@@ -34,6 +35,7 @@ def simulate_multiple_machines(
     noise: Optional[Dict[str, Any]] = None,
     cost_params: CostParams = None,
     cost_covariate_specs: List[CovariateSpec] = None,
+    cost_covariate_specs_list: List[List[CovariateSpec]] = None,  # NEW: per-machine cost specs
     cost_covariate_effects: Dict[str, np.ndarray] = None
 ):
     """
@@ -46,6 +48,14 @@ def simulate_multiple_machines(
     IMPORTANT: 
     - Fixed covariates (type='fixed') are independently sampled for each machine
     - PM_level and PM_interval can be specified per machine or shared across fleet
+
+    Per-machine mode (new):
+    Pass covariate_specs_list: a list of length n_machines, where each
+    element is a fully built List[CovariateSpec] for that machine.
+    Useful when discrete_series schedules must differ per machine
+    (e.g. vehicle-specific route/speed/load drawn from different seeds).
+    covariate_specs_list takes priority over covariate_specs when both
+    are provided.
     
     Args:
         n_machines: Number of machines to simulate
@@ -85,68 +95,93 @@ def simulate_multiple_machines(
             - machine_logs: DataFrame of machine-level summary information 
     """
     
-    # Convert PM_level and PM_interval to per-machine values (to a list of values for each machine)
-    pm_levels = _parse_machine_parameter(PM_level, n_machines, default=2.0, param_name="PM_level")
+    # Validate per-machine spec lists if provided
+    if covariate_specs_list is not None:
+        if len(covariate_specs_list) != n_machines:
+            raise ValueError(
+                f"covariate_specs_list length ({len(covariate_specs_list)}) "
+                f"must equal n_machines ({n_machines})"
+            )
+
+    if cost_covariate_specs_list is not None:
+        if len(cost_covariate_specs_list) != n_machines:
+            raise ValueError(
+                f"cost_covariate_specs_list length ({len(cost_covariate_specs_list)}) "
+                f"must equal n_machines ({n_machines})"
+            )
+
+    # Parse PM parameters to per-machine lists
+    pm_levels   = _parse_machine_parameter(PM_level,    n_machines, default=2.0,  param_name="PM_level")
     pm_intervals = _parse_machine_parameter(PM_interval, n_machines, default=None, param_name="PM_interval")
-    
-    # Simulate each machine sequentially
+
     machine_results = []
-    
+
     for i in range(n_machines):
-        # Set random seed for this machine
         seed = random_seed_base + i if random_seed_base is not None else None
-        
-        # Get machine-specific maintenance policy
-        machine_pm_level = pm_levels[i]
+
+        machine_pm_level    = pm_levels[i]
         machine_pm_interval = pm_intervals[i]
-        
-        # Deep copy covariate specs so each machine can have independent fixed values
-        machine_covariate_specs = copy.deepcopy(covariate_specs) if covariate_specs else None
-        machine_cost_covariate_specs = copy.deepcopy(cost_covariate_specs) if cost_covariate_specs else None
-        
-        # Run simulation for this machine
+
+        # ── resolve degradation covariate specs for this machine ──────────────
+        if covariate_specs_list is not None:
+            # per-machine specs provided: use directly, deepcopy to protect state
+            machine_covariate_specs = copy.deepcopy(covariate_specs_list[i])
+        elif covariate_specs is not None:
+            # shared template: deepcopy so fixed covariates resample independently
+            machine_covariate_specs = copy.deepcopy(covariate_specs)
+        else:
+            machine_covariate_specs = None
+
+        # ── resolve cost covariate specs for this machine ─────────────────────
+        if cost_covariate_specs_list is not None:
+            machine_cost_covariate_specs = copy.deepcopy(cost_covariate_specs_list[i])
+        elif cost_covariate_specs is not None:
+            machine_cost_covariate_specs = copy.deepcopy(cost_covariate_specs)
+        else:
+            machine_cost_covariate_specs = None
+
         result = simulate_path_with_covariates(
-            degradation_type=degradation_type,
-            degradation_params=degradation_params,
-            covariate_specs=machine_covariate_specs,
-            covariate_effects=covariate_effects,
-            dt=dt,
-            PM_level=machine_pm_level,
-            PM_interval=machine_pm_interval,
-            L=L,
-            x0=x0,
-            repair_func=repair_func,
-            repair_params=repair_params,
-            obs_time=obs_time,
-            random_seed=seed,
-            noise=noise,
-            cost_params=cost_params,
-            cost_covariate_specs=machine_cost_covariate_specs,
-            cost_covariate_effects=cost_covariate_effects
+            degradation_type       = degradation_type,
+            degradation_params     = degradation_params,
+            covariate_specs        = machine_covariate_specs,
+            covariate_effects      = covariate_effects,
+            dt                     = dt,
+            PM_level               = machine_pm_level,
+            PM_interval            = machine_pm_interval,
+            L                      = L,
+            x0                     = x0,
+            repair_func            = repair_func,
+            repair_params          = repair_params,
+            obs_time               = obs_time,
+            random_seed            = seed,
+            noise                  = noise,
+            cost_params            = cost_params,
+            cost_covariate_specs   = machine_cost_covariate_specs,
+            cost_covariate_effects = cost_covariate_effects
         )
-        
-        # Add machine ID and policy info to result
-        result['machine_id'] = i
-        result['PM_level'] = machine_pm_level
+
+        result['machine_id']  = i
+        result['PM_level']    = machine_pm_level
         result['PM_interval'] = machine_pm_interval
         machine_results.append(result)
 
-    
-    # Compute fleet-level cost analysis
-    fleet_costs = compute_fleet_costs(machine_results)
+    # Compile fleet-level outputs — unchanged from original
+    summary_stats      = compute_fleet_summary(machine_results)
+    fleet_costs        = compute_fleet_costs(machine_results)
+    policy_summary     = compute_policy_summary(machine_results)
+    event_logs         = export_event_level_df(machine_results)
+    machine_logs       = export_machine_level_df(machine_results)
+    covariate_history_df = integrate_all_covariates(machine_results)
 
-    # Record events of multiple machines
-    event_logs = export_event_level_df(machine_results)
-    
-    # Record events of multiple machines
-    machine_logs = export_machine_level_df(machine_results)
-    
     return {
-        'machine_results': machine_results,
-        'fleet_costs': fleet_costs,
-        'n_machines': n_machines,
-        'event_logs': event_logs,
-        'machine_logs': machine_logs
+        'machine_results':    machine_results,
+        'summary_statistics': summary_stats,
+        'fleet_costs':        fleet_costs,
+        'policy_summary':     policy_summary,
+        'n_machines':         n_machines,
+        'event_logs':         event_logs,
+        'machine_logs':       machine_logs,
+        'covariate_history':  covariate_history_df
     }
 
 def _parse_machine_parameter(
